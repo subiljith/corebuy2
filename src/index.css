@@ -1,0 +1,78 @@
+@import "tailwindcss";
+
+@theme {
+  --font-display: "Montserrat", sans-serif;
+  --font-body: "Inter", sans-serif;
+  --font-sans: "Inter", sans-serif;
+
+  --color-primary: #b02f00;
+  --color-primary-container: #ff5722;
+  --color-primary-fixed: #ffdbd1;
+  --color-primary-fixed-dim: #ffb5a0;
+  --color-on-primary: #ffffff;
+  --color-on-primary-container: #541200;
+
+  --color-secondary: #006d2f;
+  --color-secondary-container: #5dfd8a;
+  --color-on-secondary-container: #007232;
+  --color-whatsapp: #25D366;
+
+  --color-surface: #fcf9f8;
+  --color-surface-container-lowest: #ffffff;
+  --color-surface-container-low: #f6f3f2;
+  --color-surface-container: #f0edec;
+  --color-surface-container-high: #ebe7e7;
+  --color-surface-container-highest: #e5e2e1;
+  
+  --color-on-surface: #1c1b1b;
+  --color-on-surface-variant: #5b4039;
+  --color-outline: #907067;
+  --color-outline-variant: #e4beb4;
+  --color-error: #ba1a1a;
+  --color-on-error: #ffffff;
+}
+
+@layer base {
+  body {
+    font-family: var(--font-body);
+    background-color: var(--color-surface);
+    color: var(--color-on-surface);
+  }
+
+  h1, h2, h3, .font-display {
+    font-family: var(--font-display);
+  }
+}
+
+.material-symbols-outlined {
+  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+  display: inline-block;
+  vertical-align: middle;
+  line-height: 1;
+}
+
+.material-symbols-outlined.fill {
+  font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+}
+
+/* Custom Input Focus State */
+.sport-input {
+  border-width: 1px;
+  border-color: #e4beb4;
+  transition: all 0.2s ease-in-out;
+}
+.sport-input:focus {
+  outline: none;
+  border-width: 2px;
+  border-color: #b02f00;
+}
+
+/* Hide scrollbar for Chrome, Safari and Opera */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+/* Hide scrollbar for IE, Edge and Firefox */
+.no-scrollbar {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
+}

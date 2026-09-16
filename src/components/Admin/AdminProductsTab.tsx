@@ -1,5 +1,63 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { Product, CategoryItem, ProductSize } from '../../types';
+
+// Helper to compress and optimize device/gallery images before storing
+function compressImage(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const MAX_DIM = 800;
+        let { width, height } = img;
+        if (width > height && width > MAX_DIM) {
+          height = Math.round((height * MAX_DIM) / width);
+          width = MAX_DIM;
+        } else if (height > MAX_DIM) {
+          width = Math.round((width * MAX_DIM) / height);
+          height = MAX_DIM;
+        }
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          resolve(event.target?.result as string);
+          return;
+        }
+        ctx.drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL('image/jpeg', 0.85));
+      };
+      img.onerror = () => resolve(event.target?.result as string);
+      img.src = event.target?.result as string;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+const PRESET_SAMPLE_IMAGES = [
+  {
+    label: 'Velocity Shoes',
+    url: 'https://lh3.googleusercontent.com/aida-public/AB6AXuDZHPcBLg82LJOsZP62wF2zZ6dYzUU54qtRgqB8IsBY6vj9OL1r6ZIzn30R1khuv997HVs3CnxbZT5MU4sXSs6JPCGz_J8s3u9tGU-SCY99cbpg21gz7DMmIGuKWEcHi6JnZ-TR1SxCyzGRTAIQoDo08Fi-zoDplDq4Ga0y_soXWvFBNqcdjVQPo8J5gd-7l52ZrBKZkhaNPJfd4QoDiEZwsTSjZ90glw-xi1yNYaxEBgF2Wv_-6Kg',
+  },
+  {
+    label: 'AeroTee DryFit',
+    url: 'https://lh3.googleusercontent.com/aida-public/AB6AXuAA5FDdLT6qQJAlLNzDUTyrkndYhYdEjG0T5ZWvy9r4hlyPKEqnGv6985YOW49_cmVVETqI7d0KXCTWzikhFbLAD9-vnyktwmhSdpaUQ9baDEJY3qm8KcjMMMHXIvCn4H0G8SvIFtgoblEAlwYEQOqQu9P20gxkHjOeSpWhEHf2wgtMnxR6hbbLDYH5ImxnJ34VVjTyckJkv1YXeMXUx3lagJ6wa9n_SO_jSnqk_eLKEnMfK2wmPD4',
+  },
+  {
+    label: 'Pro Duffle Bag',
+    url: 'https://lh3.googleusercontent.com/aida-public/AB6AXuDcBrJN2tVkgBIqqH6zq9OrsGd-IOO0Ea-8FpT90B5l_VQUr87rZgWsNnI_zHC93Ibqgzo6yYpdNm3t53xQNOT6oIr9A1w530deV9YKWwuEXMyZn3ZyNEKfzjBYUMNGEjAL4W7YlUYVAw4eXNxf1vAJGJnIK7vME-gDLJ60R7vQ-l18VipUDBcbE37xoWDxvPzfS8swvApTo85UIWY3VasRIfr76AIblu4WHuN87wkVuUOzqHQnZ-g',
+  },
+  {
+    label: 'Training Shorts',
+    url: 'https://lh3.googleusercontent.com/aida-public/AB6AXuAV66f8CpuT2M22CJ16HN7SVD_2a6pLz0obO2jOllgV8MNiUvpahN0wEc7t4zDJjfZIAHKBejwlToqRrjq2RLhGGtHfrfOAYKvct5Oubms9ZxI5_5JNCSTSfe7SmbFcNyiclFI9YyyaxFSvkl28F3NBcNoDiALhoANvEYGepFXBNlL3LhrlGCvhMQYbNhPaulm5sh4lmzhbN-UT6StoI3RiFi8UFlCL7wP4rgJaST7HL9wmP7wHIlM',
+  },
+  {
+    label: 'Sports Equipment',
+    url: 'https://lh3.googleusercontent.com/aida-public/AB6AXuBanv9DV1tV5nGC8KsLwT7tr0kkaYGcVZoq_no3mrNGW_QcH5jTplcWD_1W4H76nNt6Pys5XAUiysYd4QfhrsWGHt2rux39j9Lvnr-lJP1Q7ZQor6jlJgSrQcJw1ofd7mvSnjD7OgKb1Rs7Y295OJFU-QQyyJZHm0qdqkTkYZz2ZV7D7DD9pvWBFgUs7ZxZ9hCppsH1is9ilPlvFHJyjamBAxk5-GdS75TJTRPvtjKfQZnxCoGksio',
+  },
+];
 
 interface AdminProductsTabProps {
   products: Product[];
@@ -46,8 +104,34 @@ export const AdminProductsTab: React.FC<AdminProductsTabProps> = ({
   ]);
 
   const [newSizeInput, setNewSizeInput] = useState('');
+  const [imageTab, setImageTab] = useState<'upload' | 'url' | 'presets'>('upload');
+  const [isProcessingImg, setIsProcessingImg] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Open modal to add product
+  const handleFileSelect = async (file: File) => {
+    if (!file.type.startsWith('image/')) {
+      alert('Please choose an image file (PNG, JPG, WEBP).');
+      return;
+    }
+    try {
+      setIsProcessingImg(true);
+      const compressedDataUrl = await compressImage(file);
+      setFormData((prev) => ({ ...prev, image: compressedDataUrl }));
+    } catch (err) {
+      console.error('Failed to process image:', err);
+      alert('Could not process this image. Please try another.');
+    } finally {
+      setIsProcessingImg(false);
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      handleFileSelect(e.dataTransfer.files[0]);
+    }
+  };
+
   const handleOpenAdd = () => {
     setEditingProduct(null);
     setFormData({
@@ -405,28 +489,161 @@ export const AdminProductsTab: React.FC<AdminProductsTabProps> = ({
                   />
                 </div>
 
-                {/* Image URL */}
-                <div className="md:col-span-2 space-y-1">
-                  <label className="font-bold text-[#1c1b1b]">Image URL *</label>
-                  <input
-                    type="url"
-                    required
-                    value={formData.image}
-                    onChange={(e) => setFormData({ ...formData, image: e.target.value })}
-                    placeholder="https://..."
-                    className="w-full p-2.5 bg-[#f6f3f2] border border-[#e4beb4] rounded-xl text-xs focus:outline-none focus:border-[#b02f00]"
-                  />
-                  {formData.image && (
-                    <div className="mt-2 flex items-center gap-3 p-2 bg-[#f0edec] rounded-lg">
-                      <img
-                        src={formData.image}
-                        alt="Preview"
-                        className="w-12 h-12 object-contain bg-white rounded-md p-1"
-                        onError={(e) => {
-                          (e.target as HTMLElement).style.display = 'none';
+                {/* Product Image (Device/Gallery Upload, Web URL, or Preset) */}
+                <div className="md:col-span-2 space-y-2 border border-[#e4beb4]/50 p-4 rounded-2xl bg-[#fcf9f8]">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <label className="font-bold text-[#1c1b1b] flex items-center gap-1.5">
+                      <span className="material-symbols-outlined text-[#b02f00] text-base">photo_library</span>
+                      Product Image *
+                    </label>
+
+                    {/* Image Source Tabs */}
+                    <div className="flex items-center gap-1 bg-[#f0edec] p-1 rounded-xl border border-[#e4beb4]">
+                      <button
+                        type="button"
+                        onClick={() => setImageTab('upload')}
+                        className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1 ${
+                          imageTab === 'upload' ? 'bg-[#b02f00] text-white shadow-xs' : 'text-[#5b4039] hover:text-[#1c1b1b]'
+                        }`}
+                      >
+                        <span className="material-symbols-outlined text-sm">upload_file</span>
+                        Upload File
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setImageTab('url')}
+                        className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1 ${
+                          imageTab === 'url' ? 'bg-[#b02f00] text-white shadow-xs' : 'text-[#5b4039] hover:text-[#1c1b1b]'
+                        }`}
+                      >
+                        <span className="material-symbols-outlined text-sm">link</span>
+                        URL
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setImageTab('presets')}
+                        className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1 ${
+                          imageTab === 'presets' ? 'bg-[#b02f00] text-white shadow-xs' : 'text-[#5b4039] hover:text-[#1c1b1b]'
+                        }`}
+                      >
+                        <span className="material-symbols-outlined text-sm">auto_awesome</span>
+                        Sample Gear
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Tab 1: Upload from Device / Gallery */}
+                  {imageTab === 'upload' && (
+                    <div className="space-y-3 pt-1">
+                      <input
+                        type="file"
+                        ref={fileInputRef}
+                        accept="image/*"
+                        onChange={(e) => {
+                          if (e.target.files && e.target.files.length > 0) {
+                            handleFileSelect(e.target.files[0]);
+                          }
                         }}
+                        className="hidden"
                       />
-                      <span className="text-[11px] text-[#5b4039]">Live image preview</span>
+
+                      <div
+                        onDragOver={(e) => e.preventDefault()}
+                        onDrop={handleDrop}
+                        onClick={() => fileInputRef.current?.click()}
+                        className="border-2 border-dashed border-[#e4beb4] hover:border-[#b02f00] bg-white rounded-2xl p-6 text-center cursor-pointer transition-all hover:bg-[#fff7f5] flex flex-col items-center justify-center gap-2 group"
+                      >
+                        <div className="w-12 h-12 rounded-full bg-[#ffdbd1]/50 text-[#b02f00] flex items-center justify-center group-hover:scale-110 transition-transform">
+                          <span className="material-symbols-outlined text-2xl">add_a_photo</span>
+                        </div>
+                        <div>
+                          <p className="font-bold text-xs text-[#1c1b1b]">
+                            {isProcessingImg ? 'Optimizing photo...' : 'Choose image from Device / Phone Gallery'}
+                          </p>
+                          <p className="text-[11px] text-[#5b4039] mt-0.5">
+                            Click to browse gallery or drag &amp; drop (JPG, PNG, WebP)
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Tab 2: Web Image URL */}
+                  {imageTab === 'url' && (
+                    <div className="space-y-2 pt-1">
+                      <input
+                        type="url"
+                        value={formData.image}
+                        onChange={(e) => setFormData({ ...formData, image: e.target.value })}
+                        placeholder="https://images.unsplash.com/..."
+                        className="w-full p-2.5 bg-white border border-[#e4beb4] rounded-xl text-xs focus:outline-none focus:border-[#b02f00]"
+                      />
+                      <p className="text-[11px] text-[#5b4039]">Paste any public image link from Unsplash, Google, or your CDN.</p>
+                    </div>
+                  )}
+
+                  {/* Tab 3: Sample Gear Presets */}
+                  {imageTab === 'presets' && (
+                    <div className="space-y-2 pt-1">
+                      <p className="text-[11px] text-[#5b4039]">Pick a high-resolution sample product photo with 1 click:</p>
+                      <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+                        {PRESET_SAMPLE_IMAGES.map((preset) => (
+                          <div
+                            key={preset.label}
+                            onClick={() => setFormData({ ...formData, image: preset.url })}
+                            className={`p-2 rounded-xl border bg-white cursor-pointer transition-all flex flex-col items-center gap-1.5 hover:border-[#b02f00] ${
+                              formData.image === preset.url ? 'border-2 border-[#b02f00] bg-[#ffdbd1]/20' : 'border-[#ebe7e7]'
+                            }`}
+                          >
+                            <img src={preset.url} alt={preset.label} className="w-12 h-12 object-contain" />
+                            <span className="text-[10px] font-bold text-[#1c1b1b] text-center truncate w-full">
+                              {preset.label}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Active Image Preview Box */}
+                  {formData.image && (
+                    <div className="mt-3 flex items-center justify-between p-3 bg-white border border-[#e4beb4]/60 rounded-xl shadow-2xs">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <img
+                          src={formData.image}
+                          alt="Product Preview"
+                          className="w-14 h-14 object-contain rounded-lg bg-[#f0edec] p-1 border border-[#ebe7e7] shrink-0"
+                          onError={(e) => {
+                            (e.target as HTMLElement).style.display = 'none';
+                          }}
+                        />
+                        <div className="min-w-0">
+                          <span className="text-[10px] font-bold uppercase text-[#006d2f] bg-[#5dfd8a]/30 px-2 py-0.5 rounded-full">
+                            Image Ready
+                          </span>
+                          <p className="text-xs font-bold text-[#1c1b1b] mt-1 truncate">
+                            {formData.image.startsWith('data:image') ? 'Uploaded from Device / Gallery' : formData.image}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => fileInputRef.current?.click()}
+                          className="text-xs font-bold text-[#b02f00] hover:underline px-2 py-1"
+                        >
+                          Change
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setFormData({ ...formData, image: '' })}
+                          className="text-xs font-bold text-[#ba1a1a] hover:bg-[#ba1a1a]/10 p-1 rounded"
+                          title="Remove image"
+                        >
+                          <span className="material-symbols-outlined text-base">delete</span>
+                        </button>
+                      </div>
                     </div>
                   )}
                 </div>

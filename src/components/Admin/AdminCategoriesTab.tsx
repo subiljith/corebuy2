@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { CategoryItem, Product } from '../../types';
 
 interface AdminCategoriesTabProps {
@@ -18,12 +18,24 @@ export const AdminCategoriesTab: React.FC<AdminCategoriesTabProps> = ({
 }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingCat, setEditingCat] = useState<CategoryItem | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [formData, setFormData] = useState({
     id: '',
     name: '',
     slug: '',
     image: '',
   });
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      const file = e.target.files[0];
+      const reader = new FileReader();
+      reader.onload = () => {
+        setFormData((prev) => ({ ...prev, image: reader.result as string }));
+      };
+      reader.readAsDataURL(file);
+    }
+  };
 
   const handleOpenAdd = () => {
     setEditingCat(null);
@@ -178,15 +190,39 @@ export const AdminCategoriesTab: React.FC<AdminCategoriesTabProps> = ({
                 />
               </div>
 
-              <div className="space-y-1">
-                <label className="font-bold text-[#1c1b1b]">Image Icon URL</label>
+              <div className="space-y-2">
+                <label className="font-bold text-[#1c1b1b]">Category Image / Icon</label>
                 <input
-                  type="url"
-                  placeholder="https://..."
+                  type="file"
+                  ref={fileInputRef}
+                  accept="image/*"
+                  onChange={handleFileChange}
+                  className="hidden"
+                />
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="px-3 py-2 bg-[#f0edec] hover:bg-[#ffdbd1] text-[#b02f00] text-xs font-bold rounded-xl flex items-center gap-1.5 transition-colors cursor-pointer"
+                  >
+                    <span className="material-symbols-outlined text-sm">upload_file</span>
+                    Choose from Gallery
+                  </button>
+                  <span className="text-[11px] text-[#5b4039]">or paste URL below:</span>
+                </div>
+                <input
+                  type="text"
+                  placeholder="https://... or uploaded image"
                   value={formData.image}
                   onChange={(e) => setFormData({ ...formData, image: e.target.value })}
                   className="w-full p-2.5 bg-[#f6f3f2] border border-[#e4beb4] rounded-xl focus:outline-none focus:border-[#b02f00]"
                 />
+                {formData.image && (
+                  <div className="flex items-center gap-2 p-2 bg-[#f0edec] rounded-lg">
+                    <img src={formData.image} alt="Preview" className="w-10 h-10 object-contain rounded-md bg-white p-1" />
+                    <span className="text-[11px] text-[#006d2f] font-semibold">Image selected</span>
+                  </div>
+                )}
               </div>
 
               <div className="pt-4 border-t border-[#ebe7e7] flex items-center justify-end gap-3">
